@@ -1,0 +1,86 @@
+FROM ubuntu:24.04 AS builder
+ENV DEBIAN_FRONTEND=noninteractive
+
+ARG SOURCE_REPO=https://github.com/Hextv/BFA-HavenCore.git
+ARG SOURCE_BRANCH=main
+ARG SOURCE_COMMIT=""
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        gcc-13 \
+        g++-13 \
+        cmake \
+        ninja-build \
+        git \
+        ca-certificates \
+        pkg-config ccache \
+        libboost-all-dev \
+        libmysqlclient-dev \
+        libssl-dev \
+        libbz2-dev \
+        libreadline-dev \
+        zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN git clone --depth 1 "${SOURCE_REPO}" -b "${SOURCE_BRANCH}" /src
+
+WORKDIR /src
+
+ENV CCACHE_DIR=/ccache
+ENV CCACHE_MAXSIZE=15G
+ENV CCACHE_SLOPPINESS=pch_defines,time_macros,include_file_mtime,include_file_ctime
+
+ARG BUILD_JOBS=4
+RUN --mount=type=cache,target=/ccache \
+    ccache -z \
+    && cmake -S /src -B /build -G Ninja \
+      -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+      -DTOOLS=1 \
+      -DSCRIPTS=static \
+      -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+      -DCMAKE_INSTALL_PREFIX=/opt/havencore \
+    && cmake --build /build -j"${BUILD_JOBS}" \
+    && cmake --build /build --target install \
+    && ccache -s \
+    && mv /opt/havencore/etc /opt/havencore/etc.dist
+
+# ---------------------------------------------------------------------------
+
+FROM ubuntu:24.04 AS runtime
+ENV DEBIAN_FRONTEND=noninteractive
+
+COPY --from=builder /opt/havencore /opt/havencore
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        libmysqlclient21 \
+        libssl3t64 \
+        libreadline8t64 \
+        zlib1g \
+        libbz2-1.0 \
+        libboost-system1.83.0 \
+        libboost-filesystem1.83.0 \
+        libboost-thread1.83.0 \
+        libboost-program-options1.83.0 \
+        libboost-iostreams1.83.0 \
+        libboost-regex1.83.0 \
+        tini \
+    && rm -rf /var/lib/apt/lists/* \
+    && userdel --remove ubuntu \
+    && groupadd --gid 1000 havencore \
+    && useradd --uid 1000 --gid havencore --home-dir /opt/havencore --shell /usr/sbin/nologin havencore
+
+COPY entrypoint.sh /opt/havencore/entrypoint.sh
+RUN chmod +x /opt/havencore/entrypoint.sh \
+    && mkdir -p /opt/havencore/run /opt/havencore/logs /opt/havencore/data \
+    && chown havencore:havencore /opt/havencore/run /opt/havencore/logs /opt/havencore/data
+
+EXPOSE 1119 8081 8085 8086
+
+USER havencore
+
+WORKDIR /opt/havencore/bin
+ENTRYPOINT ["/usr/bin/tini", "--", "/opt/havencore/entrypoint.sh"]

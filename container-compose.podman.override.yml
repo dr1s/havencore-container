@@ -1,0 +1,27 @@
+# Override file for podman-compose (SELinux mounts and userid mappings)
+services:
+
+  db:
+    userns_mode: keep-id
+    volumes:
+      - ${DB_DATA_VOL:-dbdata}:/var/lib/mysql
+      - sql/base:/opt/havencore-sql/sql/base
+
+  worldserver:
+    userns_mode: keep-id
+    volumes:
+      - ./etc:/opt/havencore/etc:z
+      - ${CLIENT_DATA_VOL:-client-data}:/opt/havencore/data:Z
+      - ${LOGS_VOL:-logs}:/opt/havencore/logs:z
+
+  bnetserver:
+    userns_mode: keep-id
+    volumes:
+      - ./etc:/opt/havencore/etc:z
+      - ${LOGS_VOL:-logs}:/opt/havencore/logs:z
+
+  extractors:
+    userns_mode: keep-id
+    volumes:
+      #- /path/to/client:/client:Z
+      - ${CLIENT_DATA_VOL:-client-data}:/opt/havencore/data:Z

@@ -1,0 +1,126 @@
+services:
+  db:
+    container_name: db
+    image: docker.io/library/mysql:8.4
+    restart: always
+    env_file:
+      - .env
+    environment:
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+    ports:
+      - "3306:3306"
+    volumes:
+      - ${DB_DATA_VOL:-dbdata}:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db-init:
+    container_name: db-init
+    image: ${HAVENCORE_DBINIT_IMAGE:-ghcr.io/dr1s/havencore-db-init:latest}
+    build:
+      context: db-init
+      dockerfile: Containerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - init-marker:/var/lib/havencore-init
+      - ./sql/base:/opt/havencore-sql/base
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
+      - WORLD_IP=${WORLD_IP:-}
+      - WORLD_NAME=${WORLD_NAME:-}
+
+  worldserver:
+    container_name: worldserver
+    image: ${HAVENCORE_SERVER_IMAGE:-ghcr.io/dr1s/havencore-server:latest}
+    build:
+      context: server
+      dockerfile: Containerfile
+    depends_on:
+      db:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    restart: always
+    ports:
+      - "8085:8085"
+      - "8086:8086"
+    stdin_open: true
+    tty: true
+    volumes:
+      - ./etc:/opt/havencore/etc
+      - ${LOGS_VOL:-logs}:/opt/havencore/logs
+      - ${CLIENT_DATA_VOL:-client-data}:/opt/havencore/data
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+    command: ['worldserver']
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/8085"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 300s
+
+  bnetserver:
+    container_name: bnetserver
+    image: ${HAVENCORE_SERVER_IMAGE:-ghcr.io/dr1s/havencore-server:latest}
+    depends_on:
+      db:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    restart: always
+    ports:
+      - "1119:1119"
+      - "8081:8081"
+    volumes:
+      - ./etc:/opt/havencore/etc
+      - ${LOGS_VOL:-logs}:/opt/havencore/logs
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+    command: ['bnetserver']
+    healthcheck:
+      test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/1119"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  extractors:
+    container_name: extractors
+    image: ${HAVENCORE_SERVER_IMAGE:-ghcr.io/dr1s/havencore-server:latest}
+    profiles:
+      - extractors
+    volumes:
+      #- /path/to/client:/client
+      - ${CLIENT_DATA_VOL:-client-data}:/opt/havencore/data
+    command: ['extractors']
+
+
+volumes:
+  dbdata:
+  client-data:
+  logs:
+  init-marker:
