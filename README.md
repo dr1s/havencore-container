@@ -68,9 +68,16 @@ Replace `<container_cmd>` with `docker` or `podman` and `<username>` / `<passwor
 
 Grant GM level `3` on all realms (`-1`) for an account:
 
+Get the username for the account:
+```bash
+<container_cmd> compose exec db  mysql -p<MYSQL_ROOT_PASSWORD> bfa_auth \
+  -e "SELECT username FROM account WHERE email = '<email>'"
+```
+
+Set the GM level for the account:
 ```bash
 <container_cmd> compose exec -u havencore worldserver bash -c \
-  'echo "account set gmlevel <email> 3 -1" > /opt/havencore/run/worldserver.in'
+  'echo "account set gmlevel <username> 3 -1" > /opt/havencore/run/worldserver.in'
 ```
 
 ## Extracting Client Data
