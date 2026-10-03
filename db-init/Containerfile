@@ -2,7 +2,7 @@ FROM ubuntu:24.04
 
 ENV debian_frontend=noninteractive
 
-ARG SOURCE_REPO=https://github.com/Hextv/BFA-HavenCore.git
+ARG SOURCE_REPO=https://github.com/HavenWoW/BFA-HavenCore.git
 ARG SOURCE_BRANCH=main
 ARG SOURCE_COMMIT=""
 

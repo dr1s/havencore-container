@@ -55,7 +55,7 @@ The compose stack consists of the following services:
 
 Once `worldserver` is running, you can create game accounts and grant GM privileges through the worldserver console FIFO.
 
-Replace `<container_cmd>` with `docker` or `podman` and `<username>` / `<password>` with your desired values.
+Replace `<container_cmd>` with `docker` or `podman` and `<email>` / `<password>` with your desired values.
 
 ### Create an account
 
