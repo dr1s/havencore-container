@@ -44,8 +44,8 @@ start_bnetserver() {
     set_conf "${config}" "LoginDatabaseInfo" "\"$(DB_INFO "${DB_LOGIN}")\""
     set_conf "${config}" "LoginREST.ExternalAddress" "${WORLD_IP}"
     set_conf "${config}" "LogsDir" "${HAVENCORE_HOME}/logs"
-    set_conf "${config}" "CertificatesFile" "${HAVENCORE_HOME}/bin/bnetserver.cert.pem"
-    set_conf "${config}" "PrivateKeyFile" "${HAVENCORE_HOME}/bin/bnetserver.key.pem"
+    set_conf "${config}" "CertificatesFile" "${HAVENCORE_HOME}/ssl/bnetserver.cert.pem"
+    set_conf "${config}" "PrivateKeyFile" "${HAVENCORE_HOME}/ssl/bnetserver.key.pem"
     echo "Starting bnetserver..."
     exec "${HAVENCORE_HOME}/bin/bnetserver" -c "${HAVENCORE_HOME}/etc/${config}" "$@"
 }

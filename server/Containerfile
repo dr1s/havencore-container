@@ -44,7 +44,9 @@ RUN --mount=type=cache,target=/ccache \
     && cmake --build /build -j"${BUILD_JOBS}" \
     && cmake --build /build --target install \
     && ccache -s \
-    && mv /opt/havencore/etc /opt/havencore/etc.dist
+    && mv /opt/havencore/etc /opt/havencore/etc.dist \
+    && mkdir /opt/havencore/ssl \
+    && mv /opt/havencore/bin/*.pem /opt/havencore/ssl
 
 # ---------------------------------------------------------------------------
 
