@@ -100,7 +100,7 @@ services:
       - DB_PORT=${DB_PORT}
       - DB_USER=${DB_USER}
       - DB_PASSWORD=${DB_PASSWORD}
-      - WORLD_IP=${WORLD_IP}
+      - WORLD_IP=${WORLD_IP:-}
     command: ['bnetserver']
     healthcheck:
       test: ["CMD", "bash", "-c", "echo > /dev/tcp/localhost/1119"]
