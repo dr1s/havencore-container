@@ -6,8 +6,8 @@ on:
     paths-ignore:
       - "**.md"
       - ".env.example"
-      - "docker-compose.yml"
-      - "podman-compose.override.yml"
+      - "container-compose.yml"
+      - "container-compose.*.override.yml"
       - ".dockerignore"
       - ".gitignore"
       - ".gitattributes"
