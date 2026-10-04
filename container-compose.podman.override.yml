@@ -1,10 +1,9 @@
 # Override file for podman-compose (SELinux mounts and userid mappings)
 services:
 
-  db:
+  db-init:
     userns_mode: keep-id
     volumes:
-      - ${DB_DATA_VOL:-dbdata}:/var/lib/mysql
       - sql/base:/opt/havencore/sql/base:Z,ro
 
   worldserver:
