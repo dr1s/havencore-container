@@ -30,7 +30,7 @@ services:
         condition: service_healthy
     volumes:
       - init-marker:/var/lib/havencore-init
-      - ./sql/base:/opt/havencore-sql/base
+      - ./sql/base:/opt/havencore/base
     env_file:
       - .env
     environment:

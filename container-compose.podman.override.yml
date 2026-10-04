@@ -5,7 +5,7 @@ services:
     userns_mode: keep-id
     volumes:
       - ${DB_DATA_VOL:-dbdata}:/var/lib/mysql
-      - sql/base:/opt/havencore-sql/sql/base
+      - sql/base:/opt/havencore/sql/base:Z,ro
 
   worldserver:
     userns_mode: keep-id
