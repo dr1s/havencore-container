@@ -47,7 +47,7 @@ case "${ROLE}" in
     ensure_conf bnetserver.conf
     set_conf "bnetserver.conf" "LoginDatabaseInfo" "\"$(DB_INFO "${DB_LOGIN}")\""
     set_conf "bnetserver.conf" "LoginREST.ExternalAddress" "${WORLD_IP}"
-    set_conf "worldserver.conf" "LogsDir" "${HAVENCORE_HOME}/logs"
+    set_conf "bnetserver.conf" "LogsDir" "${HAVENCORE_HOME}/logs"
     echo "Starting bnetserver..."
     exec "${HAVENCORE_HOME}/bin/bnetserver" -c "${HAVENCORE_HOME}/etc/bnetserver.conf" "$@"
     ;;
