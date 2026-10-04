@@ -46,7 +46,14 @@ The compose stack consists of the following services:
    For Podman users, include the override file:
 
    ```bash
-   podman-compose -f container-compose.yml -f container-compose.podman.override.yml up -d
+   podman compose -f container-compose.yml -f container-compose.podman.override.yml up -d
+   ```
+
+  or copy the `container-compose.podman.override.yml` to `container-compose.override.yml` once and use it with `podman compose`:
+
+   ```bash
+   cp container-compose.podman.override.yml container-compose.override.yml
+   podman compose up -d
    ```
 
 4. The database initialization runs once and creates the `bfa_auth`, `bfa_world`, `bfa_characters`, and `bfa_hotfixes` databases. The `worldserver` and `bnetserver` services start once the database is healthy and initialized.
@@ -98,7 +105,7 @@ To generate maps, vmaps, mmaps, and other data files from a WoW client, use the 
 2. Run the extractors:
 
    ```bash
-   docker compose -f container-compose.yml --profile extractors run --rm extractors
+   <container_cmd> compose --profile extractors run --rm extractors
    ```
 
 Extracted data is written to the `client-data` volume (or the path configured by `CLIENT_DATA_VOL`) and mounted into `worldserver`.
