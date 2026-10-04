@@ -11,6 +11,7 @@ DB_LOGIN="${DB_LOGIN:-bfa_auth}"
 DB_WORLD="${DB_WORLD:-bfa_world}"
 DB_CHAR="${DB_CHAR:-bfa_characters}"
 DB_HOTFIX="${DB_HOTFIX:-bfa_hotfixes}"
+WORLD_IP="${WORLD_IP:-127.0.0.1}"
 
 DB_INFO() {
   local db="$1"
@@ -45,6 +46,7 @@ case "${ROLE}" in
   bnetserver)
     ensure_conf bnetserver.conf
     set_conf "bnetserver.conf" "LoginDatabaseInfo" "\"$(DB_INFO "${DB_LOGIN}")\""
+    set_conf "bnetserver.conf" "LoginREST.ExternalAddress" "${WORLD_IP}"
     echo "Starting bnetserver..."
     exec "${HAVENCORE_HOME}/bin/bnetserver" -c "${HAVENCORE_HOME}/etc/bnetserver.conf" "$@"
     ;;
