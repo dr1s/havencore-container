@@ -1,4 +1,4 @@
-FROM ubuntu:24.04
+FROM ubuntu:24.04 AS builder
 
 ENV debian_frontend=noninteractive
 
@@ -8,10 +8,8 @@ ARG SOURCE_COMMIT=""
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        default-mysql-client \
         ca-certificates \
         git \
-        tini \
     && rm -rf /var/lib/apt/lists/*
 
 RUN git clone --no-checkout --depth=1 --filter=tree:0 "${SOURCE_REPO}" --branch "${SOURCE_BRANCH}" /tmp/src \
@@ -20,7 +18,24 @@ RUN git clone --no-checkout --depth=1 --filter=tree:0 "${SOURCE_REPO}" --branch 
     && cp -r /tmp/src/sql/ /opt/havencore-sql/ \
     && rm -rf /tmp/src
 
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+FROM ubuntu:24.04 AS runtime
+ENV debian_frontend=noninteractive
 
-ENTRYPOINT ["/usr/bin/tini", "--", "/entrypoint.sh"]
+COPY --from=builder --chown=1000:1000 /opt/havencore-sql/ /opt/havencore/
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        default-mysql-client \
+        tini \
+    && rm -rf /var/lib/apt/lists/* \
+    && userdel --remove ubuntu \
+    && groupadd --gid 1000 havencore \
+    && useradd --uid 1000 --gid havencore --home-dir /opt/havencore --shell /usr/sbin/nologin havencore
+
+COPY --chown=1000:1000 entrypoint.sh /opt/havencore/entrypoint.sh
+RUN chmod +x /opt/havencore/entrypoint.sh
+
+USER havencore
+
+WORKDIR /opt/havencore
+ENTRYPOINT ["/usr/bin/tini", "--", "/opt/havencore/entrypoint.sh"]

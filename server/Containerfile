@@ -51,7 +51,7 @@ RUN --mount=type=cache,target=/ccache \
 FROM ubuntu:24.04 AS runtime
 ENV DEBIAN_FRONTEND=noninteractive
 
-COPY --from=builder /opt/havencore /opt/havencore
+COPY --from=builder --chown=1000:1000 /opt/havencore /opt/havencore
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -73,7 +73,8 @@ RUN apt-get update \
     && groupadd --gid 1000 havencore \
     && useradd --uid 1000 --gid havencore --home-dir /opt/havencore --shell /usr/sbin/nologin havencore
 
-COPY entrypoint.sh /opt/havencore/entrypoint.sh
+COPY --chown=1000:1000 entrypoint.sh /opt/havencore/entrypoint.sh
+
 RUN chmod +x /opt/havencore/entrypoint.sh \
     && mkdir -p /opt/havencore/run /opt/havencore/logs /opt/havencore/data \
     && chown havencore:havencore /opt/havencore/run /opt/havencore/logs /opt/havencore/data
@@ -82,5 +83,5 @@ EXPOSE 1119 8081 8085 8086
 
 USER havencore
 
-WORKDIR /opt/havencore/bin
+WORKDIR /opt/havencore
 ENTRYPOINT ["/usr/bin/tini", "--", "/opt/havencore/entrypoint.sh"]

@@ -19,7 +19,7 @@ export MYSQL_PWD="${DB_ROOT_PASSWORD}"
 
 MARKER_DIR="${INIT_MARKER_DIR:-/var/lib/havencore-init}"
 MARKER_FILE="${MARKER_DIR}/initialized"
-SQL_DIR="${SQL_BASE_DIR:-/opt/havencore-sql}"
+SQL_DIR="${SQL_BASE_DIR:-/opt/havencore}"
 TIMEOUT_SECONDS="${DB_TIMEOUT_SECONDS:-180}"
 
 # Ensure marker directory exists
