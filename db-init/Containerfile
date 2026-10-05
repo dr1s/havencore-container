@@ -1,6 +1,6 @@
 FROM ubuntu:24.04 AS builder
 
-ENV debian_frontend=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 ARG SOURCE_REPO=https://github.com/HavenWoW/BFA-HavenCore.git
 ARG SOURCE_BRANCH=main
@@ -20,7 +20,7 @@ RUN git clone --no-checkout --depth=1 --filter=tree:0 "${SOURCE_REPO}" --branch 
     && rm -rf /tmp/src
 
 FROM ubuntu:24.04 AS runtime
-ENV debian_frontend=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 
 COPY --from=builder --chown=1000:1000 /opt/havencore-sql/ /opt/havencore/
 
