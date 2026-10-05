@@ -10,6 +10,7 @@ DB_HOST="${DB_HOST:-localhost}"
 DB_PORT="${DB_PORT:-3306}"
 WORLD_IP="${WORLD_IP:-}"
 WORLD_NAME="${WORLD_NAME:-}"
+REAPPLY_CHANGED_DATABASE_UPDATES="${REAPPLY_CHANGED_DATABASE_UPDATES:-0}"
 
 : "${DB_USER:?Environment variable DB_USER must be set}"
 : "${DB_PASSWORD:?Environment variable DB_PASSWORD must be set}"
@@ -135,35 +136,115 @@ refresh_realmlist(){
     mysql_exec "${DB_LOGIN}" -e "UPDATE \`realmlist\` SET ${set_clause};"
 }
 
+# --- Update hash helpers ---
+hash_file(){
+    sha1sum "${1}" | awk '{print $1}' | tr '[:lower:]' '[:upper:]'
+}
+
+sql_escape(){
+    printf '%s' "${1}" | sed "s/'/\\\\'/g"
+}
+
+# Returns "<count>\t<hash>" for the named update row.
+get_update_state(){
+    local db="${1}"
+    local name="${2}"
+    local escaped_name
+    escaped_name=$(sql_escape "${name}")
+
+    mysql_exec "${db}" -N -s -e \
+        "SELECT COUNT(*), COALESCE(\`hash\`, '') FROM \`updates\` WHERE \`name\`='${escaped_name}';"
+}
+
+record_update(){
+    local db="${1}"
+    local name="${2}"
+    local hash="${3}"
+    local escaped_name escaped_hash
+    escaped_name=$(sql_escape "${name}")
+    escaped_hash=$(sql_escape "${hash}")
+
+    mysql_exec "${db}" -e \
+        "REPLACE INTO \`updates\` (\`name\`, \`hash\`, \`state\`, \`speed\`) VALUES ('${escaped_name}', '${escaped_hash}', 'RELEASED', 0);"
+}
+
+# Migrate the legacy per-database marker file into the updates table.
+# The listed files are assumed to already be applied, so they are recorded
+# without re-running them.
+migrate_legacy_marker(){
+    local db="${1}"
+    local updates_dir="${2}"
+    local marker_file="${MARKER_DIR}/${db}_updates"
+
+    [ -f "${marker_file}" ] || return 0
+
+    log "Migrating legacy marker file for ${db}"
+    local filename
+    while IFS= read -r filename; do
+        [ -n "${filename}" ] || continue
+
+        local state count
+        state=$(get_update_state "${db}" "${filename}")
+        count=$(printf '%s' "${state}" | cut -f1)
+        [ "${count:-0}" -eq 0 ] || continue
+
+        local file="${updates_dir}/${filename}"
+        local hash=""
+        if [ -f "${file}" ]; then
+            hash=$(hash_file "${file}")
+        else
+            log "WARN: Legacy marker references missing file, recording empty hash: ${filename}"
+        fi
+
+        record_update "${db}" "${filename}" "${hash}"
+    done < "${marker_file}"
+
+    mv "${marker_file}" "${marker_file}.migrated"
+    log "Legacy marker file migrated: ${marker_file}"
+}
+
 # --- Apply database updates idempotently ---
 apply_db_updates(){
     local db="${1}"
     local dir="${2}"
-    local marker_file="${MARKER_DIR}/${db}_updates"
     local db_dir="${db#bfa_}"
     local updates_dir="${dir}/updates/${db_dir}"
-
-    touch "${marker_file}"
 
     if [ ! -d "${updates_dir}" ]; then
         log "No updates directory found for ${db}"
         return 0
     fi
 
+    migrate_legacy_marker "${db}" "${updates_dir}"
+
     log "Applying updates for ${db}"
-    local file
+    local file filename hash state count stored_hash
     for file in "${updates_dir}"/*.sql; do
         # If no SQL files exist, the glob will not expand; skip silently.
         [ -e "${file}" ] || continue
 
-        local filename
         filename=$(basename "${file}")
-        if grep -qxF "${filename}" "${marker_file}" 2>/dev/null; then
-            continue
+        hash=$(hash_file "${file}")
+        state=$(get_update_state "${db}" "${filename}")
+        count=$(printf '%s' "${state}" | cut -f1)
+        stored_hash=$(printf '%s' "${state}" | cut -f2)
+
+        if [ "${count:-0}" -eq 0 ]; then
+            log "Applying update: ${filename}"
+            mysql_exec "${db}" < "${file}"
+            record_update "${db}" "${filename}" "${hash}"
+        elif [ -z "${stored_hash}" ]; then
+            log "Re-hashing update: ${filename}"
+            record_update "${db}" "${filename}" "${hash}"
+        elif [ "${stored_hash}" = "${hash}" ]; then
+            log "Update already applied and matches hash: ${filename}"
+        elif [ "${REAPPLY_CHANGED_DATABASE_UPDATES:-0}" = "1" ]; then
+            log "Reapplying changed update: ${filename}"
+            mysql_exec "${db}" < "${file}"
+            record_update "${db}" "${filename}" "${hash}"
+        else
+            log "WARN: Update ${filename} has changed (hash mismatch). Skipping. Set REAPPLY_CHANGED_DATABASE_UPDATES=1 to reapply."
         fi
-        log "Applying update: ${filename}"
-        mysql_exec "${db}" < "${file}"
-        printf '%s\n' "${filename}" >> "${marker_file}"
     done
 }
 

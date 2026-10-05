@@ -11,7 +11,7 @@ The compose stack consists of the following services:
 | Service       | Purpose                                                       |
 | ------------- | ------------------------------------------------------------- |
 | `db`          | MySQL 8.4 database server                                     |
-| `db-init`     | Creates databases, imports base SQL, and applies updates      |
+| `db-init`     | Creates databases, imports base SQL, and applies tracked updates |
 | `worldserver` | Game world server (ports `8085`/`8086`)                       |
 | `bnetserver`  | Battle.net authentication server (ports `1119`/`8081`)        |
 | `extractors`  | Optional profile to extract client data from a WoW client     |
@@ -125,6 +125,7 @@ The stack is configured through environment variables in `.env`:
 | `DB_ROOT_PASSWORD`       | MySQL root password                              | `havencore`                                    |
 | `WORLD_IP`               | Realmlist address advertised to clients          | (optional)                                     |
 | `WORLD_NAME`             | Realmlist name shown in the client               | (optional)                                     |
+| `REAPPLY_CHANGED_DATABASE_UPDATES` | Reapply SQL updates whose file hash has changed  | `0` (skip and warn)                            |
 | `DB_DATA_VOL`            | Volume or path for MySQL data                    | `dbdata`                                       |
 | `CLIENT_DATA_VOL`        | Volume or path for extracted client data         | `client-data`                                  |
 | `LOGS_VOL`               | Volume or path for server logs                   | `logs`                                         |
