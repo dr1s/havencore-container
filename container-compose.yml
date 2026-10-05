@@ -41,6 +41,7 @@ services:
       - DB_ROOT_PASSWORD=${DB_ROOT_PASSWORD}
       - WORLD_IP=${WORLD_IP:-}
       - WORLD_NAME=${WORLD_NAME:-}
+      - REAPPLY_CHANGED_DATABASE_UPDATES=${REAPPLY_CHANGED_DATABASE_UPDATES:-0}
 
   worldserver:
     container_name: worldserver
