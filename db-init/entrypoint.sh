@@ -83,53 +83,47 @@ wait_for_db() {
 }
 
 # --- Database creation and privileges ---
-create_world_db(){
-    log "Creating world database: ${DB_WORLD}"
-    mysql_admin -e "CREATE DATABASE IF NOT EXISTS \`${DB_WORLD}\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-}
-
-create_char_db(){
-    log "Creating character database: ${DB_CHAR}"
-    mysql_admin -e "CREATE DATABASE IF NOT EXISTS \`${DB_CHAR}\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-}
-
-create_auth_db(){
-    log "Creating realm database: ${DB_LOGIN}"
-    mysql_admin -e "CREATE DATABASE IF NOT EXISTS \`${DB_LOGIN}\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-}
-
-create_hotfix_db(){
-    log "Creating hotfix database: ${DB_HOTFIX}"
-    mysql_admin -e "CREATE DATABASE IF NOT EXISTS \`${DB_HOTFIX}\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+create_db(){
+    local db="${1}"
+    log "Creating database: ${db}"
+    mysql_admin -e "CREATE DATABASE IF NOT EXISTS \`${db}\` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 }
 
 grant_privileges(){
-    mysql_admin -e "CREATE USER IF NOT EXISTS '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASSWORD}';
-                    ALTER USER '${DB_USER}'@'%' IDENTIFIED BY '${DB_PASSWORD}';
-                    GRANT ALL PRIVILEGES ON \`${DB_LOGIN}\`.* TO '${DB_USER}'@'%';
-                    GRANT ALL PRIVILEGES ON \`${DB_WORLD}\`.* TO '${DB_USER}'@'%';
-                    GRANT ALL PRIVILEGES ON \`${DB_CHAR}\`.* TO '${DB_USER}'@'%';
-                    GRANT ALL PRIVILEGES ON \`${DB_HOTFIX}\`.* TO '${DB_USER}'@'%';
+    local escaped_user escaped_pass
+    escaped_user=$(sql_escape "${DB_USER}")
+    escaped_pass=$(sql_escape "${DB_PASSWORD}")
+
+    mysql_admin -e "CREATE USER IF NOT EXISTS '${escaped_user}'@'%' IDENTIFIED BY '${escaped_pass}';
+                    ALTER USER '${escaped_user}'@'%' IDENTIFIED BY '${escaped_pass}';
+                    GRANT ALL PRIVILEGES ON \`${DB_LOGIN}\`.* TO '${escaped_user}'@'%';
+                    GRANT ALL PRIVILEGES ON \`${DB_WORLD}\`.* TO '${escaped_user}'@'%';
+                    GRANT ALL PRIVILEGES ON \`${DB_CHAR}\`.* TO '${escaped_user}'@'%';
+                    GRANT ALL PRIVILEGES ON \`${DB_HOTFIX}\`.* TO '${escaped_user}'@'%';
                     FLUSH PRIVILEGES;"
 }
 
 # --- Refresh realmlist address/name when WORLD_IP/WORLD_NAME is provided ---
 refresh_realmlist(){
-    if [ -z "${WORLD_IP}" ] && [ -z "${WORLD_NAME}" ]; then
+    if [[ -z "${WORLD_IP}" ]] && [[ -z "${WORLD_NAME}" ]]; then
         return 0
     fi
 
     local set_clause=""
-    if [ -n "${WORLD_IP}" ]; then
+    if [[ -n "${WORLD_IP}" ]]; then
+        local escaped_ip
+        escaped_ip=$(sql_escape "${WORLD_IP}")
         log "Updating realmlist address to: ${WORLD_IP}"
-        set_clause="\`address\` = '${WORLD_IP}'"
+        set_clause="\`address\` = '${escaped_ip}'"
     fi
-    if [ -n "${WORLD_NAME}" ]; then
+    if [[ -n "${WORLD_NAME}" ]]; then
+        local escaped_name
+        escaped_name=$(sql_escape "${WORLD_NAME}")
         log "Updating realmlist name to: ${WORLD_NAME}"
-        if [ -n "${set_clause}" ]; then
-            set_clause="${set_clause}, \`name\` = '${WORLD_NAME}'"
+        if [[ -n "${set_clause}" ]]; then
+            set_clause="${set_clause}, \`name\` = '${escaped_name}'"
         else
-            set_clause="\`name\` = '${WORLD_NAME}'"
+            set_clause="\`name\` = '${escaped_name}'"
         fi
     fi
 
@@ -176,21 +170,21 @@ migrate_legacy_marker(){
     local updates_dir="${2}"
     local marker_file="${MARKER_DIR}/${db}_updates"
 
-    [ -f "${marker_file}" ] || return 0
+    [[ -f "${marker_file}" ]] || return 0
 
     log "Migrating legacy marker file for ${db}"
     local filename
     while IFS= read -r filename; do
-        [ -n "${filename}" ] || continue
+        [[ -n "${filename}" ]] || continue
 
         local state count
         state=$(get_update_state "${db}" "${filename}")
         count=$(printf '%s' "${state}" | cut -f1)
-        [ "${count:-0}" -eq 0 ] || continue
+        [[ "${count:-0}" -eq 0 ]] || continue
 
         local file="${updates_dir}/${filename}"
         local hash=""
-        if [ -f "${file}" ]; then
+        if [[ -f "${file}" ]]; then
             hash=$(hash_file "${file}")
         else
             log "WARN: Legacy marker references missing file, recording empty hash: ${filename}"
@@ -210,7 +204,7 @@ apply_db_updates(){
     local db_dir="${db#bfa_}"
     local updates_dir="${dir}/updates/${db_dir}"
 
-    if [ ! -d "${updates_dir}" ]; then
+    if [[ ! -d "${updates_dir}" ]]; then
         log "No updates directory found for ${db}"
         return 0
     fi
@@ -221,7 +215,7 @@ apply_db_updates(){
     local file filename hash state count stored_hash
     for file in "${updates_dir}"/*.sql; do
         # If no SQL files exist, the glob will not expand; skip silently.
-        [ -e "${file}" ] || continue
+        [[ -e "${file}" ]] || continue
 
         filename=$(basename "${file}")
         hash=$(hash_file "${file}")
@@ -229,16 +223,16 @@ apply_db_updates(){
         count=$(printf '%s' "${state}" | cut -f1)
         stored_hash=$(printf '%s' "${state}" | cut -f2)
 
-        if [ "${count:-0}" -eq 0 ]; then
+        if [[ "${count:-0}" -eq 0 ]]; then
             log "Applying update: ${filename}"
             mysql_exec "${db}" < "${file}"
             record_update "${db}" "${filename}" "${hash}"
-        elif [ -z "${stored_hash}" ]; then
+        elif [[ -z "${stored_hash}" ]]; then
             log "Re-hashing update: ${filename}"
             record_update "${db}" "${filename}" "${hash}"
-        elif [ "${stored_hash}" = "${hash}" ]; then
+        elif [[ "${stored_hash}" = "${hash}" ]]; then
             log "Update already applied and matches hash: ${filename}"
-        elif [ "${REAPPLY_CHANGED_DATABASE_UPDATES:-0}" = "1" ]; then
+        elif [[ "${REAPPLY_CHANGED_DATABASE_UPDATES:-0}" = "1" ]]; then
             log "Reapplying changed update: ${filename}"
             mysql_exec "${db}" < "${file}"
             record_update "${db}" "${filename}" "${hash}"
@@ -269,7 +263,7 @@ import_base_sql(){
 
     for db in "${!base_files[@]}"; do
         file="${base_files[$db]}"
-        [ -f "${file}" ] || die "Required SQL file not found: ${file}. Please get them from: https://github.com/HavenWoW/BFA-HavenCore/releases/latest"
+        [[ -f "${file}" ]] || die "Required SQL file not found: ${file}. Please get them from: https://github.com/HavenWoW/BFA-HavenCore/releases/latest"
         log "Importing SQL: ${file}"
         mysql_exec "${db}" < "${file}"
     done
@@ -286,16 +280,16 @@ log "World DB:   ${DB_WORLD}"
 log "Char DB:    ${DB_CHAR}"
 log "Hotfix DB:  ${DB_HOTFIX}"
 
-if [ -n "${WORLD_IP}" ]; then
+if [[ -n "${WORLD_IP}" ]]; then
     log "World IP:   ${WORLD_IP}"
 fi
-if [ -n "${WORLD_NAME}" ]; then
+if [[ -n "${WORLD_NAME}" ]]; then
     log "World Name: ${WORLD_NAME}"
 fi
 
 determine_db_command
 
-if [ -f "${MARKER_FILE}" ]; then
+if [[ -f "${MARKER_FILE}" ]]; then
     log "Database already initialized, skipping setup"
     log "Checking for database updates"
     wait_for_db
@@ -307,10 +301,10 @@ fi
 
 wait_for_db
 
-create_world_db
-create_char_db
-create_auth_db
-create_hotfix_db
+create_db "${DB_WORLD}"
+create_db "${DB_CHAR}"
+create_db "${DB_LOGIN}"
+create_db "${DB_HOTFIX}"
 grant_privileges
 
 import_base_sql
