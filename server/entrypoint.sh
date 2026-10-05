@@ -78,19 +78,40 @@ start_worldserver() {
 }
 
 run_extractors() {
+    [[ -d /client ]] || { echo "ERROR: /client not mounted" >&2; exit 1; }
     cd /client
 
-    echo "Extracting maps..."
-    "${HAVENCORE_HOME}/bin/mapextractor"
-    echo "Extracting vmap4..."
-    "${HAVENCORE_HOME}/bin/vmap4extractor"
-    echo "Assembling vmap4..."
-    "${HAVENCORE_HOME}/bin/vmap4assembler" Buildings vmaps
+    if [[ ! -d maps ]]; then
+        echo "Extracting maps, dbc, cameras, gt..."
+        "${HAVENCORE_HOME}/bin/mapextractor"
+    else
+        echo "maps/ already exists, skipping mapextractor"
+    fi
+
+    if [[ ! -d Buildings ]]; then
+        echo "Extracting vmap4 source data..."
+        "${HAVENCORE_HOME}/bin/vmap4extractor"
+    else
+        echo "Buildings/ already exists, skipping vmap4extractor"
+    fi
+
+    if [[ ! -d vmaps ]]; then
+        echo "Assembling vmap4..."
+        "${HAVENCORE_HOME}/bin/vmap4assembler" Buildings vmaps
+    else
+        echo "vmaps/ already exists, skipping vmap4assembler"
+    fi
+
     echo "Generating mmaps..."
     "${HAVENCORE_HOME}/bin/mmaps_generator"
 
-    echo "Syncing maps..."
-    mv maps dbc vmaps mmaps cameras db2 Buildings gt "${HAVENCORE_HOME}/data"
+    echo "Syncing extracted data..."
+    for d in maps dbc vmaps mmaps cameras gt Buildings; do
+        [[ -d "${d}" ]] || continue
+        rm -rf "${HAVENCORE_HOME}/data/${d}"
+        mv "${d}" "${HAVENCORE_HOME}/data/"
+    done
+
     echo "Maps extracted successfully."
 }
 
