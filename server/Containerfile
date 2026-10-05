@@ -78,8 +78,8 @@ RUN apt-get update \
 COPY --chown=1000:1000 entrypoint.sh /opt/havencore/entrypoint.sh
 
 RUN chmod +x /opt/havencore/entrypoint.sh \
-    && mkdir -p /opt/havencore/run /opt/havencore/logs /opt/havencore/data \
-    && chown havencore:havencore /opt/havencore/run /opt/havencore/logs /opt/havencore/data
+    && mkdir -p /opt/havencore/run /opt/havencore/logs /opt/havencore/data /opt/havencore/etc \
+    && chown havencore:havencore /opt/havencore/run /opt/havencore/logs /opt/havencore/data /opt/havencore/etc
 
 EXPOSE 1119 8081 8085 8086
 
