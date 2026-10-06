@@ -4,6 +4,8 @@ A containerized deployment for [HavenCore](https://github.com/HavenWoW/BFA-Haven
 
 This repository provides ready-to-use container images, compose definitions, and database initialization tooling so you can run `bnetserver` and `worldserver` with MySQL without compiling the server locally.
 
+The published images are multi-architecture manifests for `linux/amd64` and `linux/arm64`, built automatically via GitHub Actions.
+
 ## Overview
 
 The compose stack consists of the following services:
@@ -18,7 +20,7 @@ The compose stack consists of the following services:
 
 ## Prerequisites
 
-- [Docker](https://docs.docker.com/) or [Podman](https://podman.io/) with compose support
+- [Docker](https://docs.docker.com/) or [Podman](https://podman.io/) with compose support (multi-arch images are published for `linux/amd64` and `linux/arm64`)
 - A copy of the HavenCore base SQL files:
   - `sql/base/bfa_auth.sql`
   - `sql/base/bfa_characters.sql`
