@@ -122,6 +122,36 @@ services:
       retries: 3
       start_period: 30s
 
+  db-backup:
+    container_name: db-backup
+    image: docker.io/databack/mysql-backup:latest
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+      db-init:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      - DB_SERVER=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=root
+      - DB_PASS=${DB_ROOT_PASSWORD}
+      - DB_DUMP_TARGET=/backup
+      - DB_DUMP_FREQUENCY=${BACKUP_FREQUENCY:-15}
+      - DB_DUMP_RETENTION=${BACKUP_RETENTION:-10c}
+      - DB_DUMP_SAFECHARS=true
+    volumes:
+      - ./backup:/backup
+    command: ['dump']
+    healthcheck:
+      test: ["CMD-SHELL", "find /backup -maxdepth 1 -name 'db_backup_*.tgz' -mmin -20 | grep -q ."]
+      interval: 5m
+      timeout: 10s
+      retries: 3
+      start_period: 5m
+
   extractors:
     container_name: extractors
     image: ${HAVENCORE_SERVER_IMAGE:-ghcr.io/dr1s/havencore-server:latest}
@@ -131,7 +161,6 @@ services:
       #- /path/to/client:/client
       - ${CLIENT_DATA_VOL:-client-data}:/opt/havencore/data
     command: ['extractors']
-
 
 volumes:
   dbdata:

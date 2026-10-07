@@ -19,6 +19,11 @@ services:
       - ./etc:/opt/havencore/etc:z
       - ${LOGS_VOL:-logs}:/opt/havencore/logs:z
 
+  db-backup:
+    userns_mode: "keep-id:uid=1005,gid=1005"
+    volumes:
+      - ./backup:/backup:Z
+
   extractors:
     userns_mode: keep-id
     volumes:

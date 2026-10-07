@@ -2,3 +2,4 @@
 .env
 sql/base/*.sql
 data/
+backup/

@@ -16,6 +16,7 @@ The compose stack consists of the following services:
 | `db-init`     | Creates databases, imports base SQL, and applies tracked updates |
 | `worldserver` | Game world server (ports `8085`/`8086`)                       |
 | `bnetserver`  | Battle.net authentication server (ports `1119`/`8081`)        |
+| `db-backup`   | Automated MySQL backups to `./backup` (default every 15 min)  |
 | `extractors`  | Optional profile to extract client data from a WoW client     |
 
 ## Prerequisites
@@ -59,6 +60,54 @@ The compose stack consists of the following services:
    ```
 
 4. The database initialization runs once and creates the `bfa_auth`, `bfa_world`, `bfa_characters`, and `bfa_hotfixes` databases. The `worldserver` and `bnetserver` services start once the database is healthy and initialized.
+
+## Backups
+
+The `db-backup` service uses [mysql-backup](https://github.com/databacker/mysql-backup) to dump all databases at the interval set by `BACKUP_FREQUENCY` (default: every 15 minutes). Backups are written to the `./backup` directory as compressed files.
+
+> [!NOTE]
+> The Podman override maps the container's `appuser` (UID/GID 1005) to your host user via `userns_mode: "keep-id:uid=1005,gid=1005"`, so backup files are owned by you on the host. If you use Docker and see a permission error, make sure `./backup` is writable by the container user (UID 1005) or add `user: "0:0"` to the `db-backup` service.
+>
+> Old backups are pruned automatically based on `BACKUP_RETENTION` (default `10c`). Use `c` for a count, e.g. `10c` keeps the 10 most recent backups.
+
+Backup files follow this naming convention:
+
+```
+db_backup_YYYY-MM-DDTHH-mm-ssZ.gz
+```
+
+### Manual backup
+
+To run a one-off backup immediately:
+
+```bash
+<container_cmd> compose run --rm -e DB_DUMP_ONCE=true db-backup
+```
+
+This also works when the rest of the stack is stopped, because the `db-backup` service depends on `db` and Compose will start the database container automatically.
+
+### Restore a backup
+
+1. Identify the backup file you want to restore:
+
+   ```bash
+   ls ./backup
+   ```
+
+2. Run the restore command, replacing `<backup-file>` with the actual filename:
+
+   ```bash
+   <container_cmd> compose run --rm -e DB_RESTORE_TARGET=/backup/<backup-file> db-backup restore
+   ```
+
+   For example:
+
+   ```bash
+   <container_cmd> compose run --rm -e DB_RESTORE_TARGET=/backup/db_backup_2026-10-07T12-30-00Z.gz db-backup restore
+   ```
+
+> [!WARNING]
+> Restoring a backup overwrites the existing databases. Consider stopping `worldserver` and `bnetserver` first to avoid active connections or data corruption.
 
 ## Creating an Account
 
@@ -135,6 +184,8 @@ The stack is configured through environment variables in `.env`:
 | `DB_DATA_VOL`            | Volume or path for MySQL data                    | `dbdata`                                       |
 | `CLIENT_DATA_VOL`        | Volume or path for extracted client data         | `client-data`                                  |
 | `LOGS_VOL`               | Volume or path for server logs                   | `logs`                                         |
+| `BACKUP_FREQUENCY`       | How often to back up the databases (minutes)     | `15`                                           |
+| `BACKUP_RETENTION`       | How long to keep backups (e.g. `7d`, `48h`, `10c`) | `10c`                                          |
 
 ### Realmlist
 
