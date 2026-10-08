@@ -2,19 +2,19 @@
 services:
 
   db-init:
-    userns_mode: keep-id
+    userns_mode: "keep-id:uid=1000,gid=1000"
     volumes:
       - ./sql/base:/opt/havencore/base:Z,ro
 
   worldserver:
-    userns_mode: keep-id
+    userns_mode: "keep-id:uid=1000,gid=1000"
     volumes:
       - ./etc:/opt/havencore/etc:z
       - ${CLIENT_DATA_VOL:-client-data}:/opt/havencore/data:Z
       - ${LOGS_VOL:-logs}:/opt/havencore/logs:z
 
   bnetserver:
-    userns_mode: keep-id
+    userns_mode: "keep-id:uid=1000,gid=1000"
     volumes:
       - ./etc:/opt/havencore/etc:z
       - ${LOGS_VOL:-logs}:/opt/havencore/logs:z
@@ -25,7 +25,7 @@ services:
       - ./backup:/backup:Z
 
   extractors:
-    userns_mode: keep-id
+    userns_mode: "keep-id:uid=1000,gid=1000"
     volumes:
       #- /path/to/client:/client:Z
       - ${CLIENT_DATA_VOL:-client-data}:/opt/havencore/data:Z
