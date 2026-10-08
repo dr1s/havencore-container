@@ -146,7 +146,7 @@ services:
       - ./backup:/backup
     command: ['dump']
     healthcheck:
-      test: ["CMD-SHELL", "find /backup -maxdepth 1 -name 'db_backup_*.tgz' -mmin -20 | grep -q ."]
+      test: ["CMD-SHELL", "THRESHOLD=$(( ${BACKUP_FREQUENCY:-15} + 10 )); find /backup -maxdepth 1 -name 'db_backup_*.gz' -mmin -${THRESHOLD} | grep -q ."]
       interval: 5m
       timeout: 10s
       retries: 3
