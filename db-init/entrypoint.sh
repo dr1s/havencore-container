@@ -23,6 +23,9 @@ MARKER_FILE="${MARKER_DIR}/initialized"
 SQL_DIR="${SQL_BASE_DIR:-/opt/havencore}"
 TIMEOUT_SECONDS="${DB_TIMEOUT_SECONDS:-180}"
 
+# Global associative array holding name -> hash for the current database's updates.
+declare -gA UPDATE_HASHES=()
+
 # Ensure marker directory exists
 mkdir -p "${MARKER_DIR}"
 
@@ -139,15 +142,17 @@ sql_escape(){
     printf '%s' "${1}" | sed "s/'/\\\\'/g"
 }
 
-# Returns "<count>\t<hash>" for the named update row.
-get_update_state(){
+# Loads all rows from the updates table for the given database into the
+# global UPDATE_HASHES associative array (name -> hash).
+load_update_states(){
     local db="${1}"
-    local name="${2}"
-    local escaped_name
-    escaped_name=$(sql_escape "${name}")
+    UPDATE_HASHES=()
 
-    mysql_exec "${db}" -N -s -e \
-        "SELECT COUNT(*), COALESCE(\`hash\`, '') FROM \`updates\` WHERE \`name\`='${escaped_name}';"
+    local name hash
+    while IFS=$'\t' read -r name hash; do
+        [[ -n "${name}" ]] || continue
+        UPDATE_HASHES["${name}"]="${hash}"
+    done < <(mysql_exec "${db}" -N -s -e "SELECT \`name\`, COALESCE(\`hash\`, '') FROM \`updates\`;")
 }
 
 record_update(){
@@ -177,10 +182,8 @@ migrate_legacy_marker(){
     while IFS= read -r filename; do
         [[ -n "${filename}" ]] || continue
 
-        local state count
-        state=$(get_update_state "${db}" "${filename}")
-        count=$(printf '%s' "${state}" | cut -f1)
-        [[ "${count:-0}" -eq 0 ]] || continue
+        # Skip if the update is already recorded in the updates table.
+        [[ -v "UPDATE_HASHES[${filename}]" ]] && continue
 
         local file="${updates_dir}/${filename}"
         local hash=""
@@ -209,35 +212,37 @@ apply_db_updates(){
         return 0
     fi
 
+    log "Applying updates for ${db}"
+    load_update_states "${db}"
+
     migrate_legacy_marker "${db}" "${updates_dir}"
 
-    log "Applying updates for ${db}"
-    local file filename hash state count stored_hash
+    local file filename hash stored_hash
     for file in "${updates_dir}"/*.sql; do
         # If no SQL files exist, the glob will not expand; skip silently.
         [[ -e "${file}" ]] || continue
 
         filename=$(basename "${file}")
         hash=$(hash_file "${file}")
-        state=$(get_update_state "${db}" "${filename}")
-        count=$(printf '%s' "${state}" | cut -f1)
-        stored_hash=$(printf '%s' "${state}" | cut -f2)
 
-        if [[ "${count:-0}" -eq 0 ]]; then
+        if [[ -v "UPDATE_HASHES[${filename}]" ]]; then
+            stored_hash="${UPDATE_HASHES[${filename}]}"
+            if [[ -z "${stored_hash}" ]]; then
+                log "Re-hashing update: ${filename}"
+                record_update "${db}" "${filename}" "${hash}"
+            elif [[ "${stored_hash}" = "${hash}" ]]; then
+                log "Update already applied and matches hash: ${filename}"
+            elif [[ "${REAPPLY_CHANGED_DATABASE_UPDATES:-0}" = "1" ]]; then
+                log "Reapplying changed update: ${filename}"
+                mysql_exec "${db}" < "${file}"
+                record_update "${db}" "${filename}" "${hash}"
+            else
+                log "WARN: Update ${filename} has changed (hash mismatch). Skipping. Set REAPPLY_CHANGED_DATABASE_UPDATES=1 to reapply."
+            fi
+        else
             log "Applying update: ${filename}"
             mysql_exec "${db}" < "${file}"
             record_update "${db}" "${filename}" "${hash}"
-        elif [[ -z "${stored_hash}" ]]; then
-            log "Re-hashing update: ${filename}"
-            record_update "${db}" "${filename}" "${hash}"
-        elif [[ "${stored_hash}" = "${hash}" ]]; then
-            log "Update already applied and matches hash: ${filename}"
-        elif [[ "${REAPPLY_CHANGED_DATABASE_UPDATES:-0}" = "1" ]]; then
-            log "Reapplying changed update: ${filename}"
-            mysql_exec "${db}" < "${file}"
-            record_update "${db}" "${filename}" "${hash}"
-        else
-            log "WARN: Update ${filename} has changed (hash mismatch). Skipping. Set REAPPLY_CHANGED_DATABASE_UPDATES=1 to reapply."
         fi
     done
 }
