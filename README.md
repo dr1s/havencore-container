@@ -178,8 +178,8 @@ The stack is configured through environment variables in `.env`:
 | `DB_WORLD`               | World database name                              | `bfa_world`                                    |
 | `DB_CHAR`                | Character database name                          | `bfa_characters`                               |
 | `DB_HOTFIX`              | Hotfix database name                             | `bfa_hotfixes`                                 |
-| `WORLD_IP`               | Realmlist address advertised to clients          | (optional)                                     |
-| `WORLD_NAME`             | Realmlist name shown in the client               | (optional)                                     |
+| `WORLD_IP`               | Worldserver IP address advertised to clients     | (optional)                                     |
+| `WORLD_NAME`             | Realm name shown in the client               | (optional)                                     |
 | `REAPPLY_CHANGED_DATABASE_UPDATES` | Reapply SQL updates whose file hash has changed  | `0` (skip and warn)                            |
 | `DB_DATA_VOL`            | Volume or path for MySQL data                    | `dbdata`                                       |
 | `CLIENT_DATA_VOL`        | Volume or path for extracted client data         | `client-data`                                  |
